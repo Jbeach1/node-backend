@@ -1,7 +1,7 @@
 export class User {
-    public UserID: string = "";
-    public FirstName: string = "";
-    public LastName: string = "";
-    public EmailAddress: string = "";
-    public Password: string = "";
+    public userId: string = "";
+    public firstName: string = "";
+    public lastName: string = "";
+    public emailAddress: string = "";
+    public password: string = ""; //todo make hashed
 }
