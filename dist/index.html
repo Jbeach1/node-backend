@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+</head>
+
+<!-- Credit to w3 schools for example table & css-->
+<!-- Link to table example: https://www.w3schools.com/w3css/tryit.asp?filename=tryw3css_tables_bordered -->
+
+<body>
+    <div class="w3-container">
+        <h2>Wilson's API</h2>
+        <p>This is a simple API that can GET, POST, PATCH and DELETE:</p>
+        <table class="w3-table w3-bordered">
+            <tr>
+                <th>Method</th>
+                <th>URL</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td>localhost:3000/</td>
+                <td>This returns our beautiful help page.</td>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td>localhost:3000/Users</td>
+                <td>This returns all of the users that have been posted. Note, the data is not persisted.</td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td>localhost:3000/User</td>
+                <td>This post's a user. Each user must have a UserID, and an optional FirstName, LastName, EmailAddress,
+                    and Password. Note the password is not in any way secure, so you probably shouldn't use it. </td>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td>localhost:3000/User/{ID}</td>
+                <td>This returns user by ID, returns 404 if user is not found.</td>
+            </tr>
+            <tr>
+                <td>PATCH</td>
+                <td>localhost:3000/User/{ID}</td>
+                <td>This updates a user's data by ID. Returns 404 if not found. Note, the id cannot be changed.</td>
+            </tr>
+            <tr>
+                <td>DELETE</td>
+                <td>localhost:3000/User/{ID}</td>
+                <td>This deletes a user if they exist and will return 404 if the user does not exist.</td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+
+</html>
