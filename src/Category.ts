@@ -1,5 +1,5 @@
 export class Category {
-    public categoryId: string = ""; //number?
+    public categoryId: number = 0;
     public categoryName: string = "";
     public categoryDescription: string = "";
 }
