@@ -5,12 +5,12 @@ var ReturnPost_1 = require("./ReturnPost");
 var Post = /** @class */ (function () {
     function Post() {
         this.postId = 0;
-        this.createdDate = new Date(); //Verify this works
+        this.createdDate = "";
         this.title = "";
         this.content = "";
         this.userId = "";
         this.headerImage = "";
-        this.lastUpdated = new Date();
+        this.lastUpdated = "";
         this.categories = [];
         this.comments = [];
     }

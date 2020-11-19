@@ -13,7 +13,6 @@ var User = /** @class */ (function () {
         this.lastName = "";
         this.emailAddress = "";
         this.hashedPassword = "";
-        this.authToken = "";
     }
     User.prototype.setPw = function (password) {
         this.password = password;

@@ -22,18 +22,8 @@ let postId: number = 1;
 let categoryId: number = 1;
 let commentId: number = 1;
 
-/*
-Find things that need proper ordering
-update dates in some functions?
-add auth
-on submit tell him you used urlencoded
-parseInt broken for patching comments?
-*/
-
-
 
 app.use(bodyParser.urlencoded({ extended: true }));
-//app.use(bodyParser.json());
 
 
 app.get('/', (req, res, next) => {
@@ -41,7 +31,7 @@ app.get('/', (req, res, next) => {
 });
 
 app.get('/Users', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         res.status(200).json(returnedUsersArr(userArr));
     } else if (!isAuth) {
@@ -61,7 +51,7 @@ app.post('/Users', (req, res, next) => {
     } else if (!EmailValidator.validate(req.body.emailAddress)) {
         res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Incorrectly formatted email address see error message", status: 406 });
     } else if (!getByID(user.userId)) {
-        userArr.push(user);
+        userArr.unshift(user);
         res.status(201).send(user.returnUser());
     } else {
         res.status(409).json({ message: 'Conflict, duplicate userId', status: 409 });
@@ -70,7 +60,7 @@ app.post('/Users', (req, res, next) => {
 
 app.get('/Users/:userId', (req, res, next) => {
     let temp = getByID(req.params.userId);
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!temp) {
             res.status(404).json({ message: 'User not found', status: 404 });
@@ -84,8 +74,7 @@ app.get('/Users/:userId', (req, res, next) => {
 
 app.patch('/Users/:userId', (req, res, next) => {
     let temp = getByID(req.params.userId);
-    let isAuth = true;
-
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!EmailValidator.validate(req.body.emailAddress)) {
             res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Incorrectly formatted email address see error message", status: 406 });
@@ -109,7 +98,7 @@ app.patch('/Users/:userId', (req, res, next) => {
 
 app.delete('/Users/:userId', (req, res, next) => {
     let temp = getByID(req.params.userId)
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!temp) {
             res.status(404).json({ message: 'User not found', status: 404 });
@@ -123,7 +112,6 @@ app.delete('/Users/:userId', (req, res, next) => {
 });
 
 
-
 app.get('/Users/:userId/:password', (req, res, next) => {
     let user = getByID(req.params.userId)
     let isValidPw = "";
@@ -135,9 +123,7 @@ app.get('/Users/:userId/:password', (req, res, next) => {
     } else if (!isValidPw) {
         res.status(401).json({ message: 'Bad username or password', status: 401 });
     } else {
-        res.status(200).json({ token: "We are authed" });
-        //TODO GEN TOKEN
-        //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        res.status(200).json({ token: generateToken(user) });
     }
 });
 
@@ -146,18 +132,20 @@ app.get('/Posts', (req, res, next) => {
 });
 
 app.post('/Posts', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         let post = new Post();
         post.postId = postId++;
         post.title = req.body.title;
         post.content = req.body.content;
         post.headerImage = req.body.headerImage;
-        post.userId = "3" //TODO correct user ID from auth header
+        post.createdDate = prettyDate();
+        post.lastUpdated = prettyDate();
+        post.userId = isAuth["user"]["userId"]
         if (post.title === undefined || post.content === undefined || post.title.length <= 0 || post.content.length <= 0) {
             res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Missing Title or Content", status: 406 });
         } else {
-            postArr.push(post);
+            postArr.unshift(post);
             res.status(201).json(post.returnPost());
         }
     } else if (!isAuth) {
@@ -168,7 +156,7 @@ app.post('/Posts', (req, res, next) => {
 app.get('/Posts/:postId', (req, res, next) => {
     let temp = getPostById(req.params.postId);
     if (temp) {
-        res.status(200).json(temp);
+        res.status(200).json(temp.returnPost());
     } else {
         res.status(404).json({ message: 'Post not found', status: 404 });
     }
@@ -176,14 +164,14 @@ app.get('/Posts/:postId', (req, res, next) => {
 
 app.patch('/Posts/:postId', (req, res, next) => {
     let post = getPostById(req.params.postId);
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (post) {
             post.title = req.body.title;
             post.content = req.body.content;
             post.headerImage = req.body.content;
-            //UPDATE THE DATEEEEEEE
-            //RESORT LIST BASED ON DATE
+            post.lastUpdated = prettyDate();
+            postArr.unshift(removePostByID(post.postId)![0]);
             res.status(200).json(post.returnPost());
         } else {
             res.status(404).json({ message: 'Post not found', status: 404 });
@@ -195,7 +183,7 @@ app.patch('/Posts/:postId', (req, res, next) => {
 
 app.delete('/Posts/:postId', (req, res, next) => {
     let post = getPostById(req.params.postId);
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (post) {
             removePostByID(post.postId);
@@ -211,19 +199,19 @@ app.delete('/Posts/:postId', (req, res, next) => {
 app.get('/Posts/User/:userId', (req, res, next) => {
     let posts = getPostByUser(req.params.userId);
     if (posts.length >= 1) {
-        res.status(200).json(returnedPostsArr(posts)); //fix here
+        res.status(200).json(returnedPostsArr(posts));
     } else {
         res.status(404).json({ message: 'Invalid user / no posts found', status: 404 });
     }
 });
 
 
-app.get('/Categories', (req, res, next) => { //TEST this one
+app.get('/Categories', (req, res, next) => {
     res.status(200).json(categoryArr);
 });
 
 app.post('/Categories', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         let category = new Category();
         category.categoryId = categoryId++;
@@ -232,7 +220,7 @@ app.post('/Categories', (req, res, next) => {
         if (isDuplicateCategoryName(category.categoryName)) {
             res.status(409).json({ message: "Conflict, duplicate categoryName", status: 409 });
         } else {
-            categoryArr.push(category);
+            categoryArr.unshift(category);
             res.status(201).json(category);
         }
     } else if (!isAuth) {
@@ -240,7 +228,7 @@ app.post('/Categories', (req, res, next) => {
     }
 });
 
-app.get('/Categories/:categoryId', (req, res, next) => { // NEEDS TO BE TESTEDss
+app.get('/Categories/:categoryId', (req, res, next) => {
     let category = getCategoryById(req.params.categoryId);
     if (category) {
         res.status(200).json(category);
@@ -252,7 +240,7 @@ app.get('/Categories/:categoryId', (req, res, next) => { // NEEDS TO BE TESTEDss
 
 app.patch('/Categories/:categoryId', (req, res, next) => {
     let category = getCategoryById(req.params.categoryId);
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (category) {
             if (!isDuplicateCategoryName(req.body.categoryName)) {
@@ -273,7 +261,7 @@ app.patch('/Categories/:categoryId', (req, res, next) => {
 
 app.delete('/Categories/:categoryId', (req, res, next) => {
     let category = getCategoryById(req.params.categoryId);
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (category) {
             removeCategoryByID(category.categoryId);
@@ -308,12 +296,12 @@ app.get('/PostCategory/Posts/:categoryId', (req, res, next) => {
 
 
 app.post('/PostCategory/:postId/:categoryId', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     let post = getPostById(req.params.postId);
-    let category = getCategoryById(req.params.categoryId) //test
+    let category = getCategoryById(req.params.categoryId);
     if (isAuth) {
         if (category && post) {
-            post.categories.push(category);
+            post.categories.unshift(category);
             res.status(201).send("Category Assigned to Post");
         } else {
             res.status(404).json({ message: "Category or Post not found", status: 404 });
@@ -325,9 +313,9 @@ app.post('/PostCategory/:postId/:categoryId', (req, res, next) => {
 
 
 app.delete('/PostCategory/:postId/:categoryId', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     let post = getPostById(req.params.postId);
-    let category = getCategoryById(req.params.categoryId) //test
+    let category = getCategoryById(req.params.categoryId);
     if (isAuth) {
         if (category && post) {
             removeCategoryFromPost(post.categories, category);
@@ -351,16 +339,17 @@ app.get('/Comments/:postId', (req, res, next) => {
 
 
 app.post('/Comments/:postId', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     let post = getPostById(req.params.postId);
     let comment = new Comment();
     comment.comment = req.body.comment;
     comment.postId = req.params.postId;
-    comment.userId = "3" //TODO @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    comment.userId = isAuth["user"]["userId"]
     comment.commentId = commentId++;
+    comment.commentDate = prettyDate();
     if (isAuth) {
         if (post) {
-            post.comments.push(comment);
+            post.comments.unshift(comment);
             res.status(201).send({ comment, status: 201 });
         } else {
             res.status(404).json({ message: "Post not found", status: 404 });
@@ -372,14 +361,15 @@ app.post('/Comments/:postId', (req, res, next) => {
 
 
 app.patch('/Comments/:postId/:commentId', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     let post = getPostById(req.params.postId);
     if (isAuth) {
         if (post) {
             let comment = getCommentFromPost(req.params.commentId, post.comments);
             if (comment) {
                 comment.comment = req.body.comment;
-                //NEW COMMENT DATE?
+                comment.commentDate = prettyDate();
+                post.comments.unshift(removeCommentFromPost(req.params.commentId, post.comments)![0]);
                 res.status(201).send(comment);
             } else {
                 res.status(404).json({ message: "Comment or Post not found", status: 404 });
@@ -394,7 +384,7 @@ app.patch('/Comments/:postId/:commentId', (req, res, next) => {
 
 
 app.delete('/Comments/:postId/:commentId', (req, res, next) => {
-    let isAuth = true;
+    let isAuth = verifyToken(req.headers.authorization);
     let post = getPostById(req.params.postId);
     if (isAuth) {
         if (post) {
@@ -448,12 +438,24 @@ function returnedUsersArr(arr: Array<User>) {
 }
 
 function generateToken(user: User) {
-    const token = jwt.sign(user, key)
+    let token = jwt.sign({ user }, key, {
+        algorithm: "HS256",
+        expiresIn: 900,
+    });
     return token;
 }
 
-function verifyToken(token: string, key: string) {
-    return jwt.verify(token, key) as any;
+function verifyToken(token: any) {
+    if (token) {
+        token = token.split(" ")[1];
+    }
+    let payload;
+    try {
+        payload = jwt.verify(token, key) as any;
+    } catch (e) {
+        return false;
+    }
+    return payload;
 }
 
 function getPostById(postId: string) {
@@ -466,19 +468,21 @@ function getPostById(postId: string) {
 }
 
 function removePostByID(id: string) {
+    let temp;
     for (let i = 0; i < postArr.length; i++) {
-        if (postArr[i].postId === id) {
-            postArr.splice(i, 1);
+        if (postArr[i].postId == id) {
+            temp = postArr.splice(i, 1);
             i--;
         }
     }
+    return temp;
 }
 
 function getPostByUser(userId: string) {
     let posts: Post[] = [];
     for (let i = 0; i < postArr.length; i++) {
         if (postArr[i].userId == userId) {
-            posts.push(postArr[i]);
+            posts.unshift(postArr[i]);
         }
     }
     return posts;
@@ -505,7 +509,7 @@ function isDuplicateCategoryName(catName: string) {
 
 function removeCategoryByID(id: string) {
     for (let i = 0; i < categoryArr.length; i++) {
-        if (categoryArr[i].categoryId === id) {
+        if (categoryArr[i].categoryId == id) {
             categoryArr.splice(i, 1);
             i--;
         }
@@ -526,7 +530,7 @@ function getPostsByCategory(category: Category) {
     for (let i = 0; i < postArr.length; i++) {
         for (let j = 0; j < postArr[i].categories.length; j++) {
             if (category.categoryId == postArr[i].categories[j].categoryId) {
-                posts.push(postArr[i]);
+                posts.unshift(postArr[i]);
             }
         }
     }
@@ -543,20 +547,28 @@ function removeCategoryFromPost(categories: Category[], category: Category) {
 }
 
 function getCommentFromPost(id: string, comments: Comment[]) {
-    let intId = parseInt(id);
     for (let i = 0; i < comments.length; i++) {
-        if (comments[i].commentId == intId) {
+        if (comments[i].commentId.toString() == id) {
             return comments[i];
         }
     }
 }
 
 function removeCommentFromPost(id: string, comments: Comment[]) {
-    let intId = parseInt(id);
+    let temp;
     for (let i = 0; i < comments.length; i++) {
-        if (comments[i].commentId == intId) {
-            comments.splice(i, 1);
-            i--;;
+        if (comments[i].commentId.toString() == id) {
+            temp = comments.splice(i, 1);
+            i--;
         }
     }
+    return temp;
 }
+
+function prettyDate() {
+    //Anthony gave me this nice lookin date function
+    let date = new Date();
+    let month = date.getMonth() + 1
+    return date.getFullYear() + "-" + month + "-" + date.getDate();
+}
+

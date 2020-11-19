@@ -8,7 +8,6 @@ export class User {
     public lastName: string = "";
     public emailAddress: string = "";
     public hashedPassword: string = "";
-    public authToken: string = "";
 
     setPw(this: any, password: string) {
         this.password = password;

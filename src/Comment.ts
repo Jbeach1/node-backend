@@ -3,5 +3,5 @@ export class Comment {
     public comment: string = "";
     public userId: string = "";
     public postId: string = "";
-    public commentDate: Date = new Date();
+    public commentDate: string = "";
 }

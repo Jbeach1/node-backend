@@ -40,20 +40,12 @@ var key = 'SuperSecret123';
 var postId = 1;
 var categoryId = 1;
 var commentId = 1;
-/*
-Find things that need proper ordering
-update dates in some functions?
-add auth
-on submit tell him you used urlencoded
-parseInt broken for patching comments?
-*/
 app.use(body_parser_1.default.urlencoded({ extended: true }));
-//app.use(bodyParser.json());
 app.get('/', function (req, res, next) {
     res.sendFile(__dirname + '/index.html');
 });
 app.get('/Users', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         res.status(200).json(returnedUsersArr(userArr));
     }
@@ -75,7 +67,7 @@ app.post('/Users', function (req, res, next) {
         res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Incorrectly formatted email address see error message", status: 406 });
     }
     else if (!getByID(user.userId)) {
-        userArr.push(user);
+        userArr.unshift(user);
         res.status(201).send(user.returnUser());
     }
     else {
@@ -84,7 +76,7 @@ app.post('/Users', function (req, res, next) {
 });
 app.get('/Users/:userId', function (req, res, next) {
     var temp = getByID(req.params.userId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!temp) {
             res.status(404).json({ message: 'User not found', status: 404 });
@@ -99,7 +91,7 @@ app.get('/Users/:userId', function (req, res, next) {
 });
 app.patch('/Users/:userId', function (req, res, next) {
     var temp = getByID(req.params.userId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!EmailValidator.validate(req.body.emailAddress)) {
             res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Incorrectly formatted email address see error message", status: 406 });
@@ -124,7 +116,7 @@ app.patch('/Users/:userId', function (req, res, next) {
 });
 app.delete('/Users/:userId', function (req, res, next) {
     var temp = getByID(req.params.userId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (!temp) {
             res.status(404).json({ message: 'User not found', status: 404 });
@@ -151,28 +143,28 @@ app.get('/Users/:userId/:password', function (req, res, next) {
         res.status(401).json({ message: 'Bad username or password', status: 401 });
     }
     else {
-        res.status(200).json({ token: "We are authed" });
-        //TODO GEN TOKEN
-        //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        res.status(200).json({ token: generateToken(user) });
     }
 });
 app.get('/Posts', function (req, res, next) {
     res.status(200).json(returnedPostsArr(postArr));
 });
 app.post('/Posts', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         var post = new Post_1.Post();
         post.postId = postId++;
         post.title = req.body.title;
         post.content = req.body.content;
         post.headerImage = req.body.headerImage;
-        post.userId = "3"; //TODO correct user ID from auth header
+        post.createdDate = prettyDate();
+        post.lastUpdated = prettyDate();
+        post.userId = isAuth["user"]["userId"];
         if (post.title === undefined || post.content === undefined || post.title.length <= 0 || post.content.length <= 0) {
             res.status(406).json({ message: "Not Acceptable: Bad data in the entity IE: Missing Title or Content", status: 406 });
         }
         else {
-            postArr.push(post);
+            postArr.unshift(post);
             res.status(201).json(post.returnPost());
         }
     }
@@ -183,7 +175,7 @@ app.post('/Posts', function (req, res, next) {
 app.get('/Posts/:postId', function (req, res, next) {
     var temp = getPostById(req.params.postId);
     if (temp) {
-        res.status(200).json(temp);
+        res.status(200).json(temp.returnPost());
     }
     else {
         res.status(404).json({ message: 'Post not found', status: 404 });
@@ -191,14 +183,14 @@ app.get('/Posts/:postId', function (req, res, next) {
 });
 app.patch('/Posts/:postId', function (req, res, next) {
     var post = getPostById(req.params.postId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (post) {
             post.title = req.body.title;
             post.content = req.body.content;
             post.headerImage = req.body.content;
-            //UPDATE THE DATEEEEEEE
-            //RESORT LIST BASED ON DATE
+            post.lastUpdated = prettyDate();
+            postArr.unshift(removePostByID(post.postId)[0]);
             res.status(200).json(post.returnPost());
         }
         else {
@@ -211,7 +203,7 @@ app.patch('/Posts/:postId', function (req, res, next) {
 });
 app.delete('/Posts/:postId', function (req, res, next) {
     var post = getPostById(req.params.postId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (post) {
             removePostByID(post.postId);
@@ -228,7 +220,7 @@ app.delete('/Posts/:postId', function (req, res, next) {
 app.get('/Posts/User/:userId', function (req, res, next) {
     var posts = getPostByUser(req.params.userId);
     if (posts.length >= 1) {
-        res.status(200).json(returnedPostsArr(posts)); //fix here
+        res.status(200).json(returnedPostsArr(posts));
     }
     else {
         res.status(404).json({ message: 'Invalid user / no posts found', status: 404 });
@@ -238,7 +230,7 @@ app.get('/Categories', function (req, res, next) {
     res.status(200).json(categoryArr);
 });
 app.post('/Categories', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         var category = new Category_1.Category();
         category.categoryId = categoryId++;
@@ -248,7 +240,7 @@ app.post('/Categories', function (req, res, next) {
             res.status(409).json({ message: "Conflict, duplicate categoryName", status: 409 });
         }
         else {
-            categoryArr.push(category);
+            categoryArr.unshift(category);
             res.status(201).json(category);
         }
     }
@@ -267,7 +259,7 @@ app.get('/Categories/:categoryId', function (req, res, next) {
 });
 app.patch('/Categories/:categoryId', function (req, res, next) {
     var category = getCategoryById(req.params.categoryId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (category) {
             if (!isDuplicateCategoryName(req.body.categoryName)) {
@@ -289,7 +281,7 @@ app.patch('/Categories/:categoryId', function (req, res, next) {
 });
 app.delete('/Categories/:categoryId', function (req, res, next) {
     var category = getCategoryById(req.params.categoryId);
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     if (isAuth) {
         if (category) {
             removeCategoryByID(category.categoryId);
@@ -323,12 +315,12 @@ app.get('/PostCategory/Posts/:categoryId', function (req, res, next) {
     }
 });
 app.post('/PostCategory/:postId/:categoryId', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     var post = getPostById(req.params.postId);
-    var category = getCategoryById(req.params.categoryId); //test
+    var category = getCategoryById(req.params.categoryId);
     if (isAuth) {
         if (category && post) {
-            post.categories.push(category);
+            post.categories.unshift(category);
             res.status(201).send("Category Assigned to Post");
         }
         else {
@@ -340,9 +332,9 @@ app.post('/PostCategory/:postId/:categoryId', function (req, res, next) {
     }
 });
 app.delete('/PostCategory/:postId/:categoryId', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     var post = getPostById(req.params.postId);
-    var category = getCategoryById(req.params.categoryId); //test
+    var category = getCategoryById(req.params.categoryId);
     if (isAuth) {
         if (category && post) {
             removeCategoryFromPost(post.categories, category);
@@ -366,16 +358,17 @@ app.get('/Comments/:postId', function (req, res, next) {
     }
 });
 app.post('/Comments/:postId', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     var post = getPostById(req.params.postId);
     var comment = new Comment_1.Comment();
     comment.comment = req.body.comment;
     comment.postId = req.params.postId;
-    comment.userId = "3"; //TODO @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    comment.userId = isAuth["user"]["userId"];
     comment.commentId = commentId++;
+    comment.commentDate = prettyDate();
     if (isAuth) {
         if (post) {
-            post.comments.push(comment);
+            post.comments.unshift(comment);
             res.status(201).send({ comment: comment, status: 201 });
         }
         else {
@@ -387,14 +380,15 @@ app.post('/Comments/:postId', function (req, res, next) {
     }
 });
 app.patch('/Comments/:postId/:commentId', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     var post = getPostById(req.params.postId);
     if (isAuth) {
         if (post) {
             var comment = getCommentFromPost(req.params.commentId, post.comments);
             if (comment) {
                 comment.comment = req.body.comment;
-                //NEW COMMENT DATE?
+                comment.commentDate = prettyDate();
+                post.comments.unshift(removeCommentFromPost(req.params.commentId, post.comments)[0]);
                 res.status(201).send(comment);
             }
             else {
@@ -410,7 +404,7 @@ app.patch('/Comments/:postId/:commentId', function (req, res, next) {
     }
 });
 app.delete('/Comments/:postId/:commentId', function (req, res, next) {
-    var isAuth = true;
+    var isAuth = verifyToken(req.headers.authorization);
     var post = getPostById(req.params.postId);
     if (isAuth) {
         if (post) {
@@ -461,11 +455,24 @@ function returnedUsersArr(arr) {
     return userArr;
 }
 function generateToken(user) {
-    var token = jsonwebtoken_1.default.sign(user, key);
+    var token = jsonwebtoken_1.default.sign({ user: user }, key, {
+        algorithm: "HS256",
+        expiresIn: 900,
+    });
     return token;
 }
-function verifyToken(token, key) {
-    return jsonwebtoken_1.default.verify(token, key);
+function verifyToken(token) {
+    if (token) {
+        token = token.split(" ")[1];
+    }
+    var payload;
+    try {
+        payload = jsonwebtoken_1.default.verify(token, key);
+    }
+    catch (e) {
+        return false;
+    }
+    return payload;
 }
 function getPostById(postId) {
     for (var i = 0; i < postArr.length; i++) {
@@ -476,18 +483,20 @@ function getPostById(postId) {
     return false;
 }
 function removePostByID(id) {
+    var temp;
     for (var i = 0; i < postArr.length; i++) {
-        if (postArr[i].postId === id) {
-            postArr.splice(i, 1);
+        if (postArr[i].postId == id) {
+            temp = postArr.splice(i, 1);
             i--;
         }
     }
+    return temp;
 }
 function getPostByUser(userId) {
     var posts = [];
     for (var i = 0; i < postArr.length; i++) {
         if (postArr[i].userId == userId) {
-            posts.push(postArr[i]);
+            posts.unshift(postArr[i]);
         }
     }
     return posts;
@@ -510,7 +519,7 @@ function isDuplicateCategoryName(catName) {
 }
 function removeCategoryByID(id) {
     for (var i = 0; i < categoryArr.length; i++) {
-        if (categoryArr[i].categoryId === id) {
+        if (categoryArr[i].categoryId == id) {
             categoryArr.splice(i, 1);
             i--;
         }
@@ -529,7 +538,7 @@ function getPostsByCategory(category) {
     for (var i = 0; i < postArr.length; i++) {
         for (var j = 0; j < postArr[i].categories.length; j++) {
             if (category.categoryId == postArr[i].categories[j].categoryId) {
-                posts.push(postArr[i]);
+                posts.unshift(postArr[i]);
             }
         }
     }
@@ -545,21 +554,26 @@ function removeCategoryFromPost(categories, category) {
     }
 }
 function getCommentFromPost(id, comments) {
-    var intId = parseInt(id);
     for (var i = 0; i < comments.length; i++) {
-        if (comments[i].commentId == intId) {
+        if (comments[i].commentId.toString() == id) {
             return comments[i];
         }
     }
 }
 function removeCommentFromPost(id, comments) {
-    var intId = parseInt(id);
+    var temp;
     for (var i = 0; i < comments.length; i++) {
-        if (comments[i].commentId == intId) {
-            comments.splice(i, 1);
+        if (comments[i].commentId.toString() == id) {
+            temp = comments.splice(i, 1);
             i--;
-            ;
         }
     }
+    return temp;
+}
+function prettyDate() {
+    //Anthony gave me this nice lookin date function
+    var date = new Date();
+    var month = date.getMonth() + 1;
+    return date.getFullYear() + "-" + month + "-" + date.getDate();
 }
 //# sourceMappingURL=index.js.map

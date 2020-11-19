@@ -7,7 +7,7 @@ var Comment = /** @class */ (function () {
         this.comment = "";
         this.userId = "";
         this.postId = "";
-        this.commentDate = new Date();
+        this.commentDate = "";
     }
     return Comment;
 }());
